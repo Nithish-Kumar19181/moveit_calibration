@@ -254,6 +254,12 @@ ControlTabWidget::ControlTabWidget(rclcpp::Node::SharedPtr node, HandEyeCalibrat
   // Connect PSM and get group names
   fillPlanningGroupNameComboBox();
 
+  // Scaling for the moves between calibration poses; settable from the launch file
+  if (!node_->has_parameter("handeye_velocity_scaling"))
+    node_->declare_parameter("handeye_velocity_scaling", 0.5);
+  if (!node_->has_parameter("handeye_acceleration_scaling"))
+    node_->declare_parameter("handeye_acceleration_scaling", 0.5);
+
   // Set plan and execution watcher
   plan_watcher_ = new QFutureWatcher<void>(this);
   connect(plan_watcher_, &QFutureWatcher<void>::finished, this, &ControlTabWidget::planFinished);
@@ -1105,8 +1111,9 @@ if (auto_progress_->getValue() < static_cast<int>(joint_states_.size()))
   {
     move_group_->setStartState(*start_state);
     move_group_->setJointValueTarget(joint_states_[auto_progress_->getValue()]);
-    move_group_->setMaxVelocityScalingFactor(0.5);
-    move_group_->setMaxAccelerationScalingFactor(0.5);
+    move_group_->setMaxVelocityScalingFactor(node_->get_parameter("handeye_velocity_scaling").as_double());
+    move_group_->setMaxAccelerationScalingFactor(
+        node_->get_parameter("handeye_acceleration_scaling").as_double());
     current_plan_.reset(new moveit::planning_interface::MoveGroupInterface::Plan());
     planning_res_ = (move_group_->plan(*current_plan_) == moveit::core::MoveItErrorCode::SUCCESS) ?
                         ControlTabWidget::SUCCESS :
