@@ -289,6 +289,7 @@ void ControlTabWidget::loadWidget(const rviz_common::Config& config)
   }
   QString joint_states_file;
   config.mapGetString("joint_states_file", &joint_states_file);
+  // QFile::exists keeps loadJointStates' "unable to open" dialog from popping up at startup.
   if (!joint_states_file.isEmpty() && QFile::exists(joint_states_file))
     loadJointStates(joint_states_file);
 }
@@ -973,13 +974,13 @@ void ControlTabWidget::loadJointStateBtnClicked([[maybe_unused]] bool clicked)
   loadJointStates(file_name);
 }
 
-bool ControlTabWidget::loadJointStates(const QString& file_name)
+void ControlTabWidget::loadJointStates(const QString& file_name)
 {
   QFile file(file_name);
   if (!file.open(QIODevice::ReadOnly))
   {
     QMessageBox::warning(this, tr("Unable to open file"), file.errorString());
-    return false;
+    return;
   }
 
   // Begin parsing
@@ -988,7 +989,7 @@ bool ControlTabWidget::loadJointStates(const QString& file_name)
     RCLCPP_DEBUG_STREAM(node_->get_logger(), "Load joint states from file: " << file_name.toStdString().c_str());
     YAML::Node doc = YAML::LoadFile(file_name.toStdString());
     if (!doc.IsMap())
-      return false;
+      return;
 
     // Read joint names
     const YAML::Node& names = doc["joint_names"];
@@ -1001,7 +1002,7 @@ bool ControlTabWidget::loadJointStates(const QString& file_name)
     else
     {
       RCLCPP_ERROR_STREAM(node_->get_logger(), "Can't find 'joint_names' in the opened file.");
-      return false;
+      return;
     }
 
     // Read joint values
@@ -1022,13 +1023,13 @@ bool ControlTabWidget::loadJointStates(const QString& file_name)
     else
     {
       RCLCPP_ERROR_STREAM(node_->get_logger(), "Can't find 'joint_values' in the opened file.");
-      return false;
+      return;
     }
   }
   catch (YAML::ParserException& e)  // Catch errors
   {
     RCLCPP_ERROR_STREAM(node_->get_logger(), e.what());
-    return false;
+    return;
   }
 
   if (joint_states_.size() > 0)
@@ -1038,7 +1039,6 @@ bool ControlTabWidget::loadJointStates(const QString& file_name)
   }
   joint_states_file_ = file_name;
   RCLCPP_INFO_STREAM(node_->get_logger(), "Loaded and parsed: " << file_name.toStdString());
-  return true;
 }
 
 void ControlTabWidget::autoPlanBtnClicked([[maybe_unused]] bool clicked)
@@ -1129,6 +1129,9 @@ void ControlTabWidget::computeExecution()
 
   if (planning_res_ == ControlTabWidget::SUCCESS)
   {
+    // The camera publishes at a few Hz, so wait for a frame taken after the move before
+    // executeFinished() pairs the target pose with the current end-effector pose.
+    rclcpp::sleep_for(std::chrono::seconds(1));
     RCLCPP_DEBUG_STREAM(node_->get_logger(), "Execution succeed.");
   }
   else

@@ -130,7 +130,7 @@ public:
   void saveWidget(rviz_common::Config& config);
 
   // Reads joint_names and joint_values from a YAML file saved by "Save joint states".
-  bool loadJointStates(const QString& file_name);
+  void loadJointStates(const QString& file_name);
 
   void setTFTool(rviz_visual_tools::TFVisualToolsPtr& tf_pub);
 
