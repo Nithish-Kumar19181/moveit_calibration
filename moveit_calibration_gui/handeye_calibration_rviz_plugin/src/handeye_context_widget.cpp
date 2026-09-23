@@ -263,7 +263,9 @@ void ContextTabWidget::loadWidget(const rviz_common::Config& config)
     if (config.mapGetString(frame.first.c_str(), &frame_name))
     {
       frame.second->clear();
-      if (!frame_name.isEmpty() && frame.second->hasFrame(frame_name.toStdString()))
+      // The config is loaded before the sim or robot is up, so TF is still empty and the frame
+      // cannot be validated yet. Restore the saved name anyway.
+      if (!frame_name.isEmpty())
         frame.second->addItem(frame_name);
     }
   }

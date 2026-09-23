@@ -287,12 +287,17 @@ void ControlTabWidget::loadWidget(const rviz_common::Config& config)
       }
     }
   }
+  QString joint_states_file;
+  config.mapGetString("joint_states_file", &joint_states_file);
+  if (!joint_states_file.isEmpty() && QFile::exists(joint_states_file))
+    loadJointStates(joint_states_file);
 }
 
 void ControlTabWidget::saveWidget(rviz_common::Config& config)
 {
   config.mapSetValue("solver", calibration_solver_->currentText());
   config.mapSetValue("group", group_name_->currentText());
+  config.mapSetValue("joint_states_file", joint_states_file_);
 }
 
 bool ControlTabWidget::loadSolverPlugin(std::vector<std::string>& plugins)
@@ -965,11 +970,16 @@ void ControlTabWidget::loadJointStateBtnClicked([[maybe_unused]] bool clicked)
   if (file_name.isEmpty() || !file_name.endsWith(".yaml"))
     return;
 
+  loadJointStates(file_name);
+}
+
+bool ControlTabWidget::loadJointStates(const QString& file_name)
+{
   QFile file(file_name);
   if (!file.open(QIODevice::ReadOnly))
   {
     QMessageBox::warning(this, tr("Unable to open file"), file.errorString());
-    return;
+    return false;
   }
 
   // Begin parsing
@@ -978,7 +988,7 @@ void ControlTabWidget::loadJointStateBtnClicked([[maybe_unused]] bool clicked)
     RCLCPP_DEBUG_STREAM(node_->get_logger(), "Load joint states from file: " << file_name.toStdString().c_str());
     YAML::Node doc = YAML::LoadFile(file_name.toStdString());
     if (!doc.IsMap())
-      return;
+      return false;
 
     // Read joint names
     const YAML::Node& names = doc["joint_names"];
@@ -991,7 +1001,7 @@ void ControlTabWidget::loadJointStateBtnClicked([[maybe_unused]] bool clicked)
     else
     {
       RCLCPP_ERROR_STREAM(node_->get_logger(), "Can't find 'joint_names' in the opened file.");
-      return;
+      return false;
     }
 
     // Read joint values
@@ -1012,13 +1022,13 @@ void ControlTabWidget::loadJointStateBtnClicked([[maybe_unused]] bool clicked)
     else
     {
       RCLCPP_ERROR_STREAM(node_->get_logger(), "Can't find 'joint_values' in the opened file.");
-      return;
+      return false;
     }
   }
   catch (YAML::ParserException& e)  // Catch errors
   {
     RCLCPP_ERROR_STREAM(node_->get_logger(), e.what());
-    return;
+    return false;
   }
 
   if (joint_states_.size() > 0)
@@ -1026,7 +1036,9 @@ void ControlTabWidget::loadJointStateBtnClicked([[maybe_unused]] bool clicked)
     auto_progress_->setMax(joint_states_.size());
     auto_progress_->setValue(0);
   }
+  joint_states_file_ = file_name;
   RCLCPP_INFO_STREAM(node_->get_logger(), "Loaded and parsed: " << file_name.toStdString());
+  return true;
 }
 
 void ControlTabWidget::autoPlanBtnClicked([[maybe_unused]] bool clicked)

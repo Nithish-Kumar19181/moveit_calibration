@@ -129,6 +129,9 @@ public:
   void loadWidget(const rviz_common::Config& config);
   void saveWidget(rviz_common::Config& config);
 
+  // Reads joint_names and joint_values from a YAML file saved by "Save joint states".
+  bool loadJointStates(const QString& file_name);
+
   void setTFTool(rviz_visual_tools::TFVisualToolsPtr& tf_pub);
 
   void addPoseSampleToTreeView(const geometry_msgs::msg::TransformStamped& camera_to_object_tf,
@@ -253,6 +256,7 @@ private:
   Eigen::Isometry3d camera_robot_pose_;
   std::vector<std::vector<double>> joint_states_;
   std::vector<std::string> joint_names_;
+  QString joint_states_file_;  // remembered in the RViz config, so it reloads on startup
   bool auto_started_;
   PLANNING_RESULT planning_res_;
 
