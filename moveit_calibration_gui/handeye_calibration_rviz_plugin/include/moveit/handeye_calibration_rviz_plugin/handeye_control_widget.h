@@ -132,6 +132,9 @@ public:
   // Reads joint_names and joint_values from a YAML file saved by "Save joint states".
   void loadJointStates(const QString& file_name);
 
+  // Ends an auto run, whether it finished the list or hit a failure.
+  void autoRunStop();
+
   void setTFTool(rviz_visual_tools::TFVisualToolsPtr& tf_pub);
 
   void addPoseSampleToTreeView(const geometry_msgs::msg::TransformStamped& camera_to_object_tf,
@@ -199,6 +202,8 @@ private Q_SLOTS:
 
   void autoExecuteBtnClicked(bool clicked);
 
+  void autoRunBtnClicked(bool clicked);
+
   void autoSkipBtnClicked(bool clicked);
 
   void planFinished();
@@ -236,6 +241,7 @@ private:
   QPushButton* auto_plan_btn_;
   QPushButton* auto_execute_btn_;
   QPushButton* auto_skip_btn_;
+  QPushButton* auto_run_btn_;
 
   // Progress of finished joint states for auto calibration
   ProgressBarWidget* auto_progress_;
@@ -258,6 +264,7 @@ private:
   std::vector<std::string> joint_names_;
   QString joint_states_file_;  // remembered in the RViz config, so it reloads on startup
   bool auto_started_;
+  bool auto_running_;  // plan and execute the whole recorded list without clicking
   PLANNING_RESULT planning_res_;
 
   // **************************************************************

@@ -106,6 +106,7 @@ ControlTabWidget::ControlTabWidget(rclcpp::Node::SharedPtr node, HandEyeCalibrat
   , from_frame_tag_("base")
   , camera_robot_pose_(Eigen::Isometry3d::Identity())
   , auto_started_(false)
+  , auto_running_(false)
   , planning_res_(ControlTabWidget::SUCCESS)
 
   , node_(node)
@@ -238,6 +239,12 @@ ControlTabWidget::ControlTabWidget(rclcpp::Node::SharedPtr node, HandEyeCalibrat
   auto_skip_btn_->setToolTip("Skip the current robot state target");
   connect(auto_skip_btn_, SIGNAL(clicked(bool)), this, SLOT(autoSkipBtnClicked(bool)));
   auto_btns_layout->addWidget(auto_skip_btn_);
+
+  auto_run_btn_ = new QPushButton("Auto plan && execute");
+  auto_run_btn_->setMinimumHeight(35);
+  auto_run_btn_->setToolTip("Plan and execute every recorded joint state, taking a sample at each");
+  connect(auto_run_btn_, SIGNAL(clicked(bool)), this, SLOT(autoRunBtnClicked(bool)));
+  auto_cal_layout->addWidget(auto_run_btn_);
 
   // Initialize handeye solver plugins
   std::vector<std::string> plugins;
@@ -1049,6 +1056,9 @@ void ControlTabWidget::autoPlanBtnClicked([[maybe_unused]] bool clicked)
 
 void ControlTabWidget::computePlan()
 {
+  if (auto_running_)
+    rclcpp::sleep_for(std::chrono::seconds(2));
+
   planning_res_ = ControlTabWidget::SUCCESS;
   int max = auto_progress_->bar_->maximum();
 
@@ -1120,8 +1130,29 @@ void ControlTabWidget::autoExecuteBtnClicked([[maybe_unused]] bool clicked)
   execution_watcher_->setFuture(QtConcurrent::run(this, &ControlTabWidget::computeExecution));
 }
 
+void ControlTabWidget::autoRunBtnClicked([[maybe_unused]] bool clicked)
+{
+  if (auto_running_)
+  {
+    autoRunStop();
+    return;
+  }
+  auto_running_ = true;
+  auto_run_btn_->setText("Stop");
+  autoPlanBtnClicked(false);
+}
+
+void ControlTabWidget::autoRunStop()
+{
+  auto_running_ = false;
+  auto_run_btn_->setText("Auto plan && execute");
+}
+
 void ControlTabWidget::computeExecution()
 {
+  if (auto_running_)
+    rclcpp::sleep_for(std::chrono::milliseconds(500));
+
   if (move_group_ && current_plan_)
     planning_res_ = (move_group_->execute(*current_plan_) == moveit::core::MoveItErrorCode::SUCCESS) ?
                         ControlTabWidget::SUCCESS :
@@ -1168,6 +1199,10 @@ void ControlTabWidget::planFinished()
     case ControlTabWidget::SUCCESS:
       break;
   }
+  if (planning_res_ != ControlTabWidget::SUCCESS)
+    autoRunStop();
+  else if (auto_running_)
+    autoExecuteBtnClicked(false);
   RCLCPP_DEBUG(node_->get_logger(), "Plan finished");
 }
 
@@ -1183,6 +1218,10 @@ void ControlTabWidget::executeFinished()
     if (effector_wrt_world_.size() == object_wrt_sensor_.size() && effector_wrt_world_.size() > 4)
       solveCameraRobotPose();
   }
+  if (planning_res_ != ControlTabWidget::SUCCESS)
+    autoRunStop();
+  else if (auto_running_)
+    autoPlanBtnClicked(false);
   RCLCPP_DEBUG(node_->get_logger(), "Execution finished");
 }
 
