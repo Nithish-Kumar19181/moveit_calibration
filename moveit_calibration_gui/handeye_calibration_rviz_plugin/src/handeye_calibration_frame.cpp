@@ -38,6 +38,7 @@
 #include <moveit/handeye_calibration_rviz_plugin/handeye_calibration_frame.h>
 
 #include <Eigen/Geometry>
+#include <QTimer>
 #include <rclcpp/rclcpp.hpp>
 #include <cmath>
 
@@ -64,7 +65,12 @@ HandEyeCalibrationFrame::HandEyeCalibrationFrame(HandEyeCalibrationDisplay* pdis
   QTabWidget* tabs = new QTabWidget(this);
   tab_target_ = new TargetTabWidget(node_, calibration_display_);
 
-  tf_tools_.reset(new rviz_visual_tools::TFVisualTools(node_, 250));
+  tf_node_ = std::make_shared<rclcpp::Node>("handeye_calibration_tf");
+  tf_tools_.reset(new rviz_visual_tools::TFVisualTools(tf_node_, 250));
+  tf_executor_.add_node(tf_node_);
+  QTimer* tf_timer = new QTimer(this);
+  connect(tf_timer, &QTimer::timeout, this, [this] { tf_executor_.spin_some(); });
+  tf_timer->start(4);  // the 250 Hz of TFVisualTools' own timer
 
   tab_context_ = new ContextTabWidget(node_, calibration_display_, context_);
   tab_context_->setTFTool(tf_tools_);
